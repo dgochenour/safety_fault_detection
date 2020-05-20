@@ -145,7 +145,6 @@ DDS_Long sleep_time, DDS_Long count)
     return 0;
 }
 
-#if !(defined(RTI_VXWORKS) && !defined(__RTP__))
 int
 main(int argc, char **argv)
 {
@@ -223,18 +222,4 @@ main(int argc, char **argv)
 
     return publisher_main_w_args(domain_id, udp_intf, peer, sleep_time, count);
 }
-#elif defined(RTI_VXWORKS)
-int
-publisher_main(void)
-{
-    /* Explicitly configure args below */
-    DDS_Long i = 0;
-    DDS_Long domain_id = 44;
-    char *peer = "10.10.30.101";
-    char *udp_intf = NULL;
-    DDS_Long sleep_time = 1000;
-    DDS_Long count = 0;
 
-    return publisher_main_w_args(domain_id, udp_intf, peer, sleep_time, count);
-}
-#endif
