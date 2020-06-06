@@ -1,0 +1,16 @@
+module control {
+
+    const string k_throttle_cmd_topic = "Throttle Command Topic";
+    const string k_brake_cmd_topic = "Brake Command Topic";
+
+    enum Device_Type {
+        THROTTLE,
+        BRAKE
+    };
+
+    struct Engagement {
+        @key long device_id;
+        Device_Type device_type;
+        long percentage;
+    };
+};
