@@ -5,8 +5,8 @@
 
 #include "rti_me_c.h"
 #include "disc_dpde/disc_dpde_discovery_plugin.h"
-#include "OdometryApplication.h"
-#include "OdometryPlugin.h"
+#include "Engagement_tApplication.h"
+#include "Engagement_tPlugin.h"
 #include "wh_sm/wh_sm_history.h"
 #include "rh_sm/rh_sm_history.h"
 #include "netio/netio_udp.h"
@@ -225,17 +225,17 @@ DDS_Long sleep_time, DDS_Long count)
         goto done;
     }
 
-    sprintf(application->type_name, "nav_msgs_msg_Odometry");
+    sprintf(application->type_name, "control_Engagement");
     retcode = DDS_DomainParticipant_register_type(application->participant,
     application->type_name,
-    nav_msgs_msg_OdometryTypePlugin_get());
+    control_EngagementTypePlugin_get());
     if (retcode != DDS_RETCODE_OK)
     {
         printf("failed to register type: %s\n", "test_type");
         goto done;
     }
 
-    sprintf(application->topic_name, "Example nav_msgs_msg_Odometry");
+    sprintf(application->topic_name, "Example control_Engagement");
     application->topic =
     DDS_DomainParticipant_create_topic(application->participant,
     application->topic_name,

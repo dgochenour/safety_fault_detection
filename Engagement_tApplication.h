@@ -17,10 +17,10 @@
 * using call-backs on the DataReader's listener
 * and, in case the first field of your type is not
 * a DDS_Long called "id", modify
-* "nav_msgs_msg_OdometrySubscriber_filter_sample",
-* "nav_msgs_msg_OdometrySubscriber_on_before_sample_deserialize",
-* "nav_msgs_msg_OdometrySubscriber_deserialize_unsigned_long", and
-* "nav_msgs_msg_OdometrySubscriber_filter_sample" functions to
+* "control_EngagementSubscriber_filter_sample",
+* "control_EngagementSubscriber_on_before_sample_deserialize",
+* "control_EngagementSubscriber_deserialize_unsigned_long", and
+* "control_EngagementSubscriber_filter_sample" functions to
 * correctly filter by the field you want to use for filtering.
 */
 

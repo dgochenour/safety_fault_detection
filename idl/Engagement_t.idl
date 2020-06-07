@@ -1,7 +1,8 @@
 module control {
 
-    const string k_throttle_cmd_topic = "Throttle Command Topic";
-    const string k_brake_cmd_topic = "Brake Command Topic";
+    const string THROTTLE_CMD_TOPIC_NAME = "Throttle Command Topic";
+    const string BRAKE_CMD_TOPIC_NAME = "Brake Command Topic";
+    const string ENGAGEMENT_TYPE_NAME = "control::Engagement";
 
     enum Device_Type {
         THROTTLE,
