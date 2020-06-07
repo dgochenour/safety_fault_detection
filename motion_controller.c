@@ -210,7 +210,7 @@ DDS_Long sleep_time, DDS_Long count)
         printf("topic == NULL\n");
     }
 
-    retcode = DPSE_RemoteParticipant_assert(dp, REMOTE_THROTTLE_PARTICIPANT_NAME);
+    retcode = DPSE_RemoteParticipant_assert(dp, THROTTLE_SYSTEM_PARTICIPANT_NAME);
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote participant\n");
     }
@@ -260,7 +260,7 @@ DDS_Long sleep_time, DDS_Long count)
 #endif
     if(DDS_RETCODE_OK != DPSE_RemoteSubscription_assert(
            dp,
-           REMOTE_THROTTLE_PARTICIPANT_NAME,
+           THROTTLE_SYSTEM_PARTICIPANT_NAME,
            &throttle_cmd_topic_sub_data,
            control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL))) {
         printf("failed to assert remote subscription\n");
@@ -271,9 +271,7 @@ DDS_Long sleep_time, DDS_Long count)
 
     enable_all_entities(dp);
 
-    for (i = 0; (count > 0 && i < count) ||
-    (count == 0); ++i)
-    {
+    for (i = 0; (count > 0 && i < count) || (count == 0); ++i) {
         /* TODO set sample attributes here */
 
         retcode = control_EngagementDataWriter_write(
