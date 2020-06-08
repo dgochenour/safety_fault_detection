@@ -52,16 +52,14 @@ DDS_DataReader * reader)
     {
         sample_info = DDS_SampleInfoSeq_get_reference(&info_seq, i);
 
-        if (sample_info->valid_data)
-        {
+        if (sample_info->valid_data) {
             sample = control_EngagementSeq_get_reference(&sample_seq, i);
-
-            printf("\nValid sample received\n");
-            /* TODO read sample attributes here */ 
-        }
-        else
-        {
-            printf("\nSample received\n\tINVALID DATA\n");
+            printf("\nSAMPLE RECEIVED:\n");
+            printf("\tdevice_id = %d\n", sample->device_id);
+            printf("\tpercentage = %d\n", sample->percentage);
+            printf("\tsequence num = %ld %lu\n", 
+                    sample_info->publication_sequence_number.high,
+                    sample_info->publication_sequence_number.low);
         }
     }
 
@@ -254,7 +252,7 @@ DDS_Long sleep_time, DDS_Long count)
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote participant\n");
     }
-    
+
     dr_listener.on_data_available = 
             control_EngagementSubscriber_on_data_available;
     dr_listener.on_subscription_matched =

@@ -270,7 +270,10 @@ DDS_Long sleep_time, DDS_Long count)
     enable_all_entities(dp);
 
     for (i = 0; (count > 0 && i < count) || (count == 0); ++i) {
-        /* TODO set sample attributes here */
+        
+        /* set TEST values */
+        sample->device_id = 1;
+        sample->percentage = 75;
 
         retcode = control_EngagementDataWriter_write(
                 throttle_cmd_topic_dw_narrow,
