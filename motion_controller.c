@@ -73,35 +73,16 @@ DDS_Long sleep_time, DDS_Long count)
         printf("failed to register rh\n");
     }
     
-    /* Configure UDP transport's allowed interfaces */
-    if(!RT_Registry_unregister(registry, NETIO_DEFAULT_UDP_NAME, NULL, NULL)) {
-        printf("failed to unregister udp\n");
-    }
+    /* configure the UDP transport */
     udp_property = (struct UDP_InterfaceFactoryProperty *)
             malloc(sizeof(struct UDP_InterfaceFactoryProperty));
     if (udp_property == NULL) {
         printf("failed to allocate udp properties\n");
     }
-
     *udp_property = UDP_INTERFACE_FACTORY_PROPERTY_DEFAULT;
-    if(!DDS_StringSeq_set_maximum(&udp_property->allow_interface,2)) {
-        printf("failed to set allow_interface maximum\n");
-    }
-    if(!DDS_StringSeq_set_length(&udp_property->allow_interface,2)) {
-        printf("failed to set allow_interface length\n");
-    }
-    *DDS_StringSeq_get_reference(&udp_property->allow_interface,0) = 
-            DDS_String_dup("lo0");
-    *DDS_StringSeq_get_reference(&udp_property->allow_interface,1) = 
-            DDS_String_dup(udp_intf);
-
-    if(!RT_Registry_register(
-            registry, 
-            NETIO_DEFAULT_UDP_NAME,
-            UDP_InterfaceFactory_get_interface(),
-            (struct RT_ComponentFactoryProperty*)udp_property, 
-            NULL)) {
-        printf("failed to register udp\n");
+    retcode = configure_udp_transport(registry, udp_property, udp_intf);
+    if (retcode != DDS_RETCODE_OK) {
+        printf("failed to configure UDP\n");
     }
 
     DDS_DomainParticipantFactory_get_qos(dpf, &dpf_qos);
