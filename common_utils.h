@@ -9,3 +9,16 @@
 * any incidental or consequential damages arising out of the use or inability
 * to use the software.
 */
+
+#ifndef COMMON_UTILS_H
+#define COMMON_UTILS_H
+
+#include "rti_me_c.h"
+#include "wh_sm/wh_sm_history.h"
+#include "rh_sm/rh_sm_history.h"
+#include "disc_dpse/disc_dpse_dpsediscovery.h"
+#include "netio/netio_udp.h"
+
+DDS_ReturnCode_t enable_all_entities(DDS_DomainParticipant *participant);
+
+#endif /* COMMON_UTILS_H */

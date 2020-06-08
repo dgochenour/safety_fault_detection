@@ -15,88 +15,13 @@
 #include <string.h>
 
 #include "motion_controller_common.h"
+#include "velocity_system_listeners.h"
+#include "common_utils.h"
 #include "Engagement_t.h"
 #include "Engagement_tSupport.h"
 #include "Engagement_tPlugin.h"
 
-DDS_ReturnCode_t enable_all_entities(DDS_DomainParticipant *participant) {
-    DDS_Entity *entity;
-    DDS_ReturnCode_t retcode;
 
-    entity = DDS_DomainParticipant_as_entity(participant);
-    retcode = DDS_Entity_enable(entity);
-    if (retcode != DDS_RETCODE_OK) {
-        printf("failed to enable entity\n");
-    }
-    return retcode;
-}
-
-void
-control_EngagementSubscriber_on_data_available(void *listener_data,
-DDS_DataReader * reader)
-{
-    control_EngagementDataReader *hw_reader = control_EngagementDataReader_narrow(reader);
-    DDS_ReturnCode_t retcode;
-    struct DDS_SampleInfo *sample_info = NULL;
-    control_Engagement *sample = NULL;
-
-    struct DDS_SampleInfoSeq info_seq = 
-    DDS_SEQUENCE_INITIALIZER;
-    struct control_EngagementSeq sample_seq = 
-    DDS_SEQUENCE_INITIALIZER;
-
-    const DDS_Long TAKE_MAX_SAMPLES = 32;
-    DDS_Long i;
-
-    retcode = control_EngagementDataReader_take(hw_reader, 
-    &sample_seq, &info_seq, TAKE_MAX_SAMPLES, 
-    DDS_ANY_SAMPLE_STATE, DDS_ANY_VIEW_STATE, DDS_ANY_INSTANCE_STATE);
-
-    if (retcode != DDS_RETCODE_OK)
-    {
-        printf("failed to take data, retcode(%d)\n", retcode);
-        goto done;
-    }
-
-    /* Print each valid sample taken */
-    for (i = 0; i < control_EngagementSeq_get_length(&sample_seq); ++i)
-    {
-        sample_info = DDS_SampleInfoSeq_get_reference(&info_seq, i);
-
-        if (sample_info->valid_data) {
-            sample = control_EngagementSeq_get_reference(&sample_seq, i);
-            printf("\nSAMPLE RECEIVED:\n");
-            printf("\tdevice_id = %d\n", sample->device_id);
-            printf("\tpercentage = %d\n", sample->percentage);
-            printf("\tsequence num = %ld %lu\n", 
-                    sample_info->publication_sequence_number.high,
-                    sample_info->publication_sequence_number.low);
-        }
-    }
-
-    control_EngagementDataReader_return_loan(hw_reader, &sample_seq, &info_seq);
-
-    done:
-    control_EngagementSeq_finalize(&sample_seq);
-    DDS_SampleInfoSeq_finalize(&info_seq);
-}
-
-void
-control_EngagementSubscriber_on_subscription_matched(void *listener_data,
-DDS_DataReader * reader,
-const struct
-DDS_SubscriptionMatchedStatus
-*status)
-{
-    if (status->current_count_change > 0)
-    {
-        printf("Matched a publisher\n");
-    }
-    else if (status->current_count_change < 0)
-    {
-        printf("Unmatched a publisher\n");
-    }
-}
 
 
 
@@ -265,9 +190,9 @@ DDS_Long sleep_time, DDS_Long count)
     }
 
     dr_listener.on_data_available = 
-            control_EngagementSubscriber_on_data_available;
+            throttle_cmd_topic_dr_on_data_available;
     dr_listener.on_subscription_matched =
-            control_EngagementSubscriber_on_subscription_matched;
+            throttle_cmd_topic_dr_on_subscription_matched;
 
     dr_qos.protocol.rtps_object_id = THROTTLE_CMD_TOPIC_DR_RTPS_OBJ_ID;
     dr_qos.resource_limits.max_instances = 2;

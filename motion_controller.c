@@ -15,36 +15,10 @@
 #include <string.h>
 
 #include "motion_controller_common.h"
+#include "motion_controller_listeners.h"
+#include "common_utils.h"
 #include "Engagement_t.h"
 #include "Engagement_tSupport.h"
-
-DDS_ReturnCode_t enable_all_entities(DDS_DomainParticipant *participant) {
-    DDS_Entity *entity;
-    DDS_ReturnCode_t retcode;
-
-    entity = DDS_DomainParticipant_as_entity(participant);
-    retcode = DDS_Entity_enable(entity);
-    if (retcode != DDS_RETCODE_OK) {
-        printf("failed to enable entity\n");
-    }
-    return retcode;
-}
-
-void
-control_EngagementPublisher_on_publication_matched(void *listener_data,
-DDS_DataWriter * writer,
-const struct
-DDS_PublicationMatchedStatus *status)
-{
-    if (status->current_count_change > 0)
-    {
-        printf("Matched a subscriber\n");
-    }
-    else if (status->current_count_change < 0)
-    {
-        printf("Unmatched a subscriber\n");
-    }
-}
 
 int
 publisher_main_w_args(DDS_Long domain_id, char *udp_intf, char *peer,
@@ -241,7 +215,7 @@ DDS_Long sleep_time, DDS_Long count)
 
 
     dw_listener.on_publication_matched =
-            control_EngagementPublisher_on_publication_matched;
+            throttle_cmd_topic_dw_on_publication_matched;
 
     throttle_cmd_topic_dw = DDS_Publisher_create_datawriter(
             publisher, 
