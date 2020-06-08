@@ -15,20 +15,19 @@
 #include <string.h>
 
 #include "motion_controller_common.h"
-#include "velocity_system_listeners.h"
+#include "longitudinal_system_listeners.h"
 #include "common_utils.h"
 #include "Engagement_t.h"
 #include "Engagement_tSupport.h"
 #include "Engagement_tPlugin.h"
 
-
-
-
-
-int
-subscriber_main_w_args(DDS_Long domain_id, char *udp_intf, char *peer,
-DDS_Long sleep_time, DDS_Long count)
-{
+int subscriber_main_w_args(
+        DDS_Long domain_id, 
+        char *udp_intf, 
+        char *peer,
+        DDS_Long sleep_time, 
+        DDS_Long count) {
+            
     DDS_DomainParticipantFactory *dpf = NULL;
     struct DDS_DomainParticipantFactoryQos dpf_qos =
             DDS_DomainParticipantFactoryQos_INITIALIZER;

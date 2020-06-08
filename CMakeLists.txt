@@ -80,12 +80,12 @@ add_executable(motion_controller
         ${IDL_GEN_C} 
         ${IDL_GEN_H})
 
-add_executable(velocity_system 
-        ${CMAKE_CURRENT_SOURCE_DIR}/velocity_system.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/velocity_system_listeners.c
+add_executable(longitudinal_system 
+        ${CMAKE_CURRENT_SOURCE_DIR}/longitudinal_system.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/longitudinal_system_listeners.c
         ${CMAKE_CURRENT_SOURCE_DIR}/common_utils.c
         ${IDL_GEN_C} 
         ${IDL_GEN_H})
 
-target_link_libraries(velocity_system ${MICRO_C_LIBS} ${PLATFORM_LIBS})
+target_link_libraries(longitudinal_system ${MICRO_C_LIBS} ${PLATFORM_LIBS})
 target_link_libraries(motion_controller ${MICRO_C_LIBS} ${PLATFORM_LIBS})
