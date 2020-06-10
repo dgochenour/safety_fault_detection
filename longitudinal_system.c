@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include "motion_controller_common.h"
-#include "longitudinal_system_listeners.h"
+#include "longitudinal_system_callbacks.h"
 #include "common_utils.h"
 #include "Engagement_t.h"
 #include "Engagement_tSupport.h"
@@ -35,20 +35,33 @@ int subscriber_main_w_args(
     struct DDS_DomainParticipantQos dp_qos =
             DDS_DomainParticipantQos_INITIALIZER;
     RT_Registry_T *registry = NULL;
-
     struct UDP_InterfaceFactoryProperty *udp_property = NULL;
-
     struct DPSE_DiscoveryPluginProperty discovery_plugin_properties =
             DPSE_DiscoveryPluginProperty_INITIALIZER;
+    /* Topics */
     DDS_Topic *throttle_cmd_topic;
+    DDS_Topic *brake_cmd_topic;
     DDS_Subscriber *subscriber;
+    /* DataReaders */
     DDS_DataReader *throttle_cmd_topic_dr = NULL;
-    struct DDS_DataReaderQos dr_qos = DDS_DataReaderQos_INITIALIZER;
-    DDS_ReturnCode_t retcode;
-    struct DDS_DataReaderListener dr_listener = 
+    DDS_DataReader *brake_cmd_topic_dr = NULL;
+    /* DataReader QoS */
+    struct DDS_DataReaderQos throttle_cmd_topic_dr_qos = 
+            DDS_DataReaderQos_INITIALIZER;
+    struct DDS_DataReaderQos brake_cmd_topic_dr_qos = 
+            DDS_DataReaderQos_INITIALIZER;
+    /* DataReader Listeners */          
+    struct DDS_DataReaderListener throttle_cmd_topic_dr_listener = 
             DDS_DataReaderListener_INITIALIZER;
+    struct DDS_DataReaderListener brake_cmd_topic_dr_listener = 
+            DDS_DataReaderListener_INITIALIZER;
+    /* remote publication discovery information (required for DPSE) */         
     struct DDS_PublicationBuiltinTopicData throttle_cmd_topic_pub_data =
             DDS_PublicationBuiltinTopicData_INITIALIZER;
+    struct DDS_PublicationBuiltinTopicData brake_cmd_topic_pub_data =
+            DDS_PublicationBuiltinTopicData_INITIALIZER;
+
+    DDS_ReturnCode_t retcode;
 
     dpf = DDS_DomainParticipantFactory_get_instance();
     registry = DDS_DomainParticipantFactory_get_registry(dpf);
@@ -113,16 +126,17 @@ int subscriber_main_w_args(
     }
     *DDS_StringSeq_get_reference(&dp_qos.discovery.initial_peers,0) = 
         DDS_String_dup(peer);
-
+    dp_qos.resource_limits.local_writer_allocation = 2;
+    dp_qos.resource_limits.local_reader_allocation = 2;
     dp_qos.resource_limits.max_destination_ports = 32;
     dp_qos.resource_limits.max_receive_ports = 32;
     dp_qos.resource_limits.local_topic_allocation = 2;
     dp_qos.resource_limits.local_type_allocation = 10;
-
     dp_qos.resource_limits.remote_participant_allocation = 1;
+    dp_qos.resource_limits.remote_writer_allocation = 2;
 
     /* set the name of the local DomainParticipant */
-    strcpy(dp_qos.participant_name.name, THROTTLE_SYSTEM_PARTICIPANT_NAME);
+    strcpy(dp_qos.participant_name.name, LONGITUDINAL_SYSTEM_PARTICIPANT_NAME);
 
     dp = DDS_DomainParticipantFactory_create_participant(
             dpf,
@@ -164,61 +178,121 @@ int subscriber_main_w_args(
     if (throttle_cmd_topic == NULL) {
         printf("topic == NULL\n");
     }
+    brake_cmd_topic = DDS_DomainParticipant_create_topic(
+            dp,
+            control_BRAKE_CMD_TOPIC_NAME,
+            control_ENGAGEMENT_TYPE_NAME,
+            &DDS_TOPIC_QOS_DEFAULT, 
+            NULL,
+            DDS_STATUS_MASK_NONE);
+    if (throttle_cmd_topic == NULL) {
+        printf("topic == NULL\n");
+    }
+
+    /* assert any remote DomainParticipants we expect to discover */
     retcode = DPSE_RemoteParticipant_assert(dp, MOTION_CONTROLLER_PARTICIPANT_NAME);
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote participant\n");
     }
 
-    dr_listener.on_data_available = 
-            throttle_cmd_topic_dr_on_data_available;
-    dr_listener.on_subscription_matched =
-            throttle_cmd_topic_dr_on_subscription_matched;
-
-    dr_qos.protocol.rtps_object_id = THROTTLE_CMD_TOPIC_DR_RTPS_OBJ_ID;
-    dr_qos.resource_limits.max_instances = 2;
-    dr_qos.resource_limits.max_samples_per_instance = 32;
-    dr_qos.resource_limits.max_samples = dr_qos.resource_limits.max_instances *
-    dr_qos.resource_limits.max_samples_per_instance;
+    /* throttle_cmd_topic DataReader */
+    throttle_cmd_topic_dr_qos.protocol.rtps_object_id = 
+            THROTTLE_CMD_TOPIC_DR_RTPS_OBJ_ID;
+    throttle_cmd_topic_dr_qos.resource_limits.max_instances = 2;
+    throttle_cmd_topic_dr_qos.resource_limits.max_samples_per_instance = 32;
+    throttle_cmd_topic_dr_qos.resource_limits.max_samples = 
+            throttle_cmd_topic_dr_qos.resource_limits.max_instances *
+            throttle_cmd_topic_dr_qos.resource_limits.max_samples_per_instance;
     /* if there are more remote writers, you need to increase these limits */
-    dr_qos.reader_resource_limits.max_remote_writers = 10;
-    dr_qos.reader_resource_limits.max_remote_writers_per_instance = 10;
-    dr_qos.history.depth = 32;
-    /* Reliability QoS */
-    #ifdef USE_RELIABLE_QOS
-    dr_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
-    #else
-    dr_qos.reliability.kind = DDS_BEST_EFFORT_RELIABILITY_QOS;
-    #endif
+    throttle_cmd_topic_dr_qos.reader_resource_limits.max_remote_writers = 10;
+    throttle_cmd_topic_dr_qos.reader_resource_limits.max_remote_writers_per_instance = 10;
+    throttle_cmd_topic_dr_qos.history.depth = 32;
+    throttle_cmd_topic_dr_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+
+    /* assign throttle_cmd_topic DataReader callbacks */
+    throttle_cmd_topic_dr_listener.on_data_available = 
+            throttle_cmd_topic_dr_on_data_available;
+    throttle_cmd_topic_dr_listener.on_subscription_matched =
+            throttle_cmd_topic_dr_on_subscription_matched;
 
     throttle_cmd_topic_dr = DDS_Subscriber_create_datareader(
             subscriber,
             DDS_Topic_as_topicdescription(throttle_cmd_topic), 
-            &dr_qos,
-            &dr_listener,
+            &throttle_cmd_topic_dr_qos,
+            &throttle_cmd_topic_dr_listener,
             DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS);
     if(throttle_cmd_topic_dr == NULL) {
         printf("datareader == NULL\n");
     }
 
-    throttle_cmd_topic_pub_data.key.value[DDS_BUILTIN_TOPIC_KEY_OBJECT_ID] = 100;
+    /* configure discovery information for the remote throttle_cmd_topic 
+     * DataWriter
+     */
+    throttle_cmd_topic_pub_data.key.value[DDS_BUILTIN_TOPIC_KEY_OBJECT_ID] = 
+            THROTTLE_CMD_TOPIC_DW_RTPS_OBJ_ID;
     throttle_cmd_topic_pub_data.topic_name = 
             DDS_String_dup(control_THROTTLE_CMD_TOPIC_NAME);
     throttle_cmd_topic_pub_data.type_name = 
             DDS_String_dup(control_ENGAGEMENT_TYPE_NAME);
-#ifdef USE_RELIABLE_QOS
     throttle_cmd_topic_pub_data.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
-#else
-    throttle_cmd_topic_pub_data.reliability.kind  = DDS_BEST_EFFORT_RELIABILITY_QOS;
-#endif
-
     retcode = DPSE_RemotePublication_assert(
-       dp,
-       MOTION_CONTROLLER_PARTICIPANT_NAME,
-       &throttle_cmd_topic_pub_data,
-       control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL));
+            dp,
+            MOTION_CONTROLLER_PARTICIPANT_NAME,
+            &throttle_cmd_topic_pub_data,
+            control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL));
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote publication\n");
     }
+
+    /* brake_cmd_topic DataReader */
+    brake_cmd_topic_dr_qos.protocol.rtps_object_id = 
+            BRAKE_CMD_TOPIC_DR_RTPS_OBJ_ID;
+    brake_cmd_topic_dr_qos.resource_limits.max_instances = 2;
+    brake_cmd_topic_dr_qos.resource_limits.max_samples_per_instance = 32;
+    brake_cmd_topic_dr_qos.resource_limits.max_samples = 
+            brake_cmd_topic_dr_qos.resource_limits.max_instances *
+            brake_cmd_topic_dr_qos.resource_limits.max_samples_per_instance;
+    /* if there are more remote writers, you need to increase these limits */
+    brake_cmd_topic_dr_qos.reader_resource_limits.max_remote_writers = 10;
+    brake_cmd_topic_dr_qos.reader_resource_limits.max_remote_writers_per_instance = 10;
+    brake_cmd_topic_dr_qos.history.depth = 32;
+    brake_cmd_topic_dr_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+
+    /* assign brake_cmd_topic DataReader callbacks */
+    brake_cmd_topic_dr_listener.on_data_available = 
+            brake_cmd_topic_dr_on_data_available;
+    brake_cmd_topic_dr_listener.on_subscription_matched =
+            brake_cmd_topic_dr_on_subscription_matched;
+
+    brake_cmd_topic_dr = DDS_Subscriber_create_datareader(
+            subscriber,
+            DDS_Topic_as_topicdescription(brake_cmd_topic), 
+            &brake_cmd_topic_dr_qos,
+            &brake_cmd_topic_dr_listener,
+            DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS);
+    if(brake_cmd_topic_dr == NULL) {
+        printf("datareader == NULL\n");
+    }
+
+    /* configure discovery information for the remote brake_cmd_topic 
+     * DataWriter
+     */
+    brake_cmd_topic_pub_data.key.value[DDS_BUILTIN_TOPIC_KEY_OBJECT_ID] = 
+            BRAKE_CMD_TOPIC_DW_RTPS_OBJ_ID;
+    brake_cmd_topic_pub_data.topic_name = 
+            DDS_String_dup(control_BRAKE_CMD_TOPIC_NAME);
+    brake_cmd_topic_pub_data.type_name = 
+            DDS_String_dup(control_ENGAGEMENT_TYPE_NAME);
+    brake_cmd_topic_pub_data.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    retcode = DPSE_RemotePublication_assert(
+            dp,
+            MOTION_CONTROLLER_PARTICIPANT_NAME,
+            &brake_cmd_topic_pub_data,
+            control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL));
+    if (retcode != DDS_RETCODE_OK) {
+        printf("failed to assert remote publication\n");
+    }
+
     enable_all_entities(dp);
 
     if (count != 0)

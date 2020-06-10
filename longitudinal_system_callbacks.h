@@ -27,3 +27,12 @@ void throttle_cmd_topic_dr_on_subscription_matched(
         void *listener_data,
         DDS_DataReader * reader,
         const struct DDS_SubscriptionMatchedStatus *status);
+
+void brake_cmd_topic_dr_on_data_available(
+        void *listener_data,
+        DDS_DataReader * reader);
+
+void brake_cmd_topic_dr_on_subscription_matched(
+        void *listener_data,
+        DDS_DataReader * reader,
+        const struct DDS_SubscriptionMatchedStatus *status);

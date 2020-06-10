@@ -20,3 +20,8 @@ void throttle_cmd_topic_dw_on_publication_matched(
         void *listener_data,
         DDS_DataWriter * writer,
         const struct DDS_PublicationMatchedStatus *status);
+
+void brake_cmd_topic_dw_on_publication_matched(
+        void *listener_data,
+        DDS_DataWriter * writer,
+        const struct DDS_PublicationMatchedStatus *status);
