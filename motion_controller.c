@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include "motion_controller_common.h"
-#include "motion_controller_listeners.h"
+#include "motion_controller_callbacks.h"
 #include "common_utils.h"
 #include "Engagement_t.h"
 #include "Engagement_tSupport.h"
@@ -32,26 +32,40 @@ DDS_Long sleep_time, DDS_Long count)
     struct DDS_DomainParticipantQos dp_qos =
             DDS_DomainParticipantQos_INITIALIZER;
     RT_Registry_T *registry = NULL;
-
     struct UDP_InterfaceFactoryProperty *udp_property = NULL;
-
     struct DPSE_DiscoveryPluginProperty discovery_plugin_properties =
             DPSE_DiscoveryPluginProperty_INITIALIZER;
-     DDS_Topic *throttle_cmd_topic;
-
     DDS_Publisher *publisher = NULL;
-    DDS_DataWriter *throttle_cmd_topic_dw = NULL;
-    control_EngagementDataWriter *throttle_cmd_topic_dw_narrow = NULL;
-    struct DDS_DataWriterQos dw_qos = DDS_DataWriterQos_INITIALIZER;
+    /* Topics */
+    DDS_Topic *throttle_cmd_topic;
+    DDS_Topic *brake_cmd_topic;
+    /* data samples */
+    control_Engagement *throttle_cmd_topic_sample = NULL;
+    control_Engagement *brake_cmd_topic_sample = NULL;    
+    /* DataWriters */
+    DDS_DataWriter *throttle_cmd_topic_dw   = NULL;
+    DDS_DataWriter *brake_cmd_topic_dw      = NULL;
+    control_EngagementDataWriter *throttle_cmd_topic_dw_narrow  = NULL;
+    control_EngagementDataWriter *brake_cmd_topic_dw_narrow     = NULL;
+    /* DataWriter QoS */
+    struct DDS_DataWriterQos throttle_cmd_topic_dw_qos = 
+            DDS_DataWriterQos_INITIALIZER;
+    struct DDS_DataWriterQos brake_cmd_topic_dw_qos = 
+            DDS_DataWriterQos_INITIALIZER;
+    /* DataWriter Listeners */        
+    struct DDS_DataWriterListener throttle_cmd_topic_dw_listener =
+            DDS_DataWriterListener_INITIALIZER;   
+    struct DDS_DataWriterListener brake_cmd_topic_dw_listener =
+            DDS_DataWriterListener_INITIALIZER;           
+    /* remote subscription discovery information (required for DPSE) */        
     struct DDS_SubscriptionBuiltinTopicData throttle_cmd_topic_sub_data =
+            DDS_SubscriptionBuiltinTopicData_INITIALIZER;
+    struct DDS_SubscriptionBuiltinTopicData brake_cmd_topic_sub_data =
             DDS_SubscriptionBuiltinTopicData_INITIALIZER;
 
     DDS_ReturnCode_t retcode;
-    control_Engagement *sample = NULL;
-    struct Application *application = NULL;
     DDS_Long i;
-    struct DDS_DataWriterListener dw_listener =
-            DDS_DataWriterListener_INITIALIZER;
+
 
     dpf = DDS_DomainParticipantFactory_get_instance();
     registry = DDS_DomainParticipantFactory_get_registry(dpf);
@@ -99,9 +113,7 @@ DDS_Long sleep_time, DDS_Long count)
         printf("failed to register dpse\n");
     }
 
-    if(!RT_ComponentFactoryId_set_name(
-            &dp_qos.discovery.discovery.name,
-            "dpse")) {
+    if(!RT_ComponentFactoryId_set_name(&dp_qos.discovery.discovery.name, "dpse")) {
         printf("failed to set discovery plugin name\n");
     }
     if(!DDS_StringSeq_set_maximum(&dp_qos.discovery.initial_peers,1)) {
@@ -115,16 +127,15 @@ DDS_Long sleep_time, DDS_Long count)
         peer = "127.0.0.1";
     }
     *DDS_StringSeq_get_reference(&dp_qos.discovery.initial_peers,0) = 
-        DDS_String_dup(peer);
-
+            DDS_String_dup(peer);
+    dp_qos.resource_limits.local_writer_allocation = 2;
+    dp_qos.resource_limits.local_reader_allocation = 2;
     dp_qos.resource_limits.max_destination_ports = 32;
     dp_qos.resource_limits.max_receive_ports = 32;
     dp_qos.resource_limits.local_topic_allocation = 2;
     dp_qos.resource_limits.local_type_allocation = 10;
-
     dp_qos.resource_limits.remote_participant_allocation = 1;
-
-
+    dp_qos.resource_limits.remote_reader_allocation = 8;
     /* set the name of the local DomainParticipant */
     strcpy(dp_qos.participant_name.name, MOTION_CONTROLLER_PARTICIPANT_NAME);
 
@@ -136,12 +147,6 @@ DDS_Long sleep_time, DDS_Long count)
             DDS_STATUS_MASK_NONE);
     if(dp == NULL) {
         printf("failed to create participant\n");
-    }
-
-
-    sample = control_Engagement_create();
-    if(sample == NULL) {
-        printf("failed control_Engagement_create\n");
     }
 
     publisher = DDS_DomainParticipant_create_publisher(
@@ -173,39 +178,48 @@ DDS_Long sleep_time, DDS_Long count)
     if (throttle_cmd_topic == NULL) {
         printf("topic == NULL\n");
     }
+    brake_cmd_topic = DDS_DomainParticipant_create_topic(
+            dp,
+            control_BRAKE_CMD_TOPIC_NAME,
+            control_ENGAGEMENT_TYPE_NAME,
+            &DDS_TOPIC_QOS_DEFAULT, 
+            NULL,
+            DDS_STATUS_MASK_NONE);
+    if (brake_cmd_topic == NULL) {
+        printf("topic == NULL\n");
+    }
 
-    retcode = DPSE_RemoteParticipant_assert(dp, THROTTLE_SYSTEM_PARTICIPANT_NAME);
+    /* assert any remote DomainParticipants we expect to discover */
+    retcode = DPSE_RemoteParticipant_assert(dp, LONGITUDINAL_SYSTEM_PARTICIPANT_NAME);
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote participant\n");
     }
 
     /* throttle_cmd_topic DataWriter */
-    dw_qos.protocol.rtps_object_id = THROTTLE_CMD_TOPIC_DW_RTPS_OBJ_ID;
-    #ifdef USE_RELIABLE_QOS
-    dw_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
-    #else
-    dw_qos.reliability.kind = DDS_BEST_EFFORT_RELIABILITY_QOS;
-    #endif
-    dw_qos.resource_limits.max_samples_per_instance = 32;
-    dw_qos.resource_limits.max_instances = 2;
-    dw_qos.resource_limits.max_samples = dw_qos.resource_limits.max_instances *
-    dw_qos.resource_limits.max_samples_per_instance;
-    dw_qos.history.depth = 32;
-    dw_qos.protocol.rtps_reliable_writer.heartbeat_period.sec = 0;
-    dw_qos.protocol.rtps_reliable_writer.heartbeat_period.nanosec = 250000000;
+    throttle_cmd_topic_dw_qos.protocol.rtps_object_id = 
+            THROTTLE_CMD_TOPIC_DW_RTPS_OBJ_ID;
+    throttle_cmd_topic_dw_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    throttle_cmd_topic_dw_qos.resource_limits.max_samples_per_instance = 32;
+    throttle_cmd_topic_dw_qos.resource_limits.max_instances = 2;
+    throttle_cmd_topic_dw_qos.resource_limits.max_samples = 
+            throttle_cmd_topic_dw_qos.resource_limits.max_instances *
+            throttle_cmd_topic_dw_qos.resource_limits.max_samples_per_instance;
+    throttle_cmd_topic_dw_qos.history.depth = 32;
+    throttle_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.sec = 0;
+    throttle_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.nanosec = 250000000;
 
-
-    dw_listener.on_publication_matched =
+    /* assign throttle_cmd_topic DataWriter callbacks */
+    throttle_cmd_topic_dw_listener.on_publication_matched =
             throttle_cmd_topic_dw_on_publication_matched;
 
     throttle_cmd_topic_dw = DDS_Publisher_create_datawriter(
             publisher, 
             throttle_cmd_topic, 
-            &dw_qos,
-            &dw_listener,
+            &throttle_cmd_topic_dw_qos,
+            &throttle_cmd_topic_dw_listener,
             DDS_PUBLICATION_MATCHED_STATUS);
     if (throttle_cmd_topic_dw == NULL) {
-        printf("datawriter == NULL\n");
+        printf("throttle_cmd_topic_dw == NULL\n");
     }
 
     /* configure discovery information for the remote throttle_cmd_topic 
@@ -217,33 +231,88 @@ DDS_Long sleep_time, DDS_Long count)
             DDS_String_dup(control_THROTTLE_CMD_TOPIC_NAME);
     throttle_cmd_topic_sub_data.type_name = 
             DDS_String_dup(control_ENGAGEMENT_TYPE_NAME);
-#ifdef USE_RELIABLE_QOS
     throttle_cmd_topic_sub_data.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
-#else
-    throttle_cmd_topic_sub_data.reliability.kind  = DDS_BEST_EFFORT_RELIABILITY_QOS;
-#endif
     if(DDS_RETCODE_OK != DPSE_RemoteSubscription_assert(
-           dp,
-           THROTTLE_SYSTEM_PARTICIPANT_NAME,
-           &throttle_cmd_topic_sub_data,
-           control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL))) {
-        printf("failed to assert remote subscription\n");
+            dp,
+            LONGITUDINAL_SYSTEM_PARTICIPANT_NAME,
+            &throttle_cmd_topic_sub_data,
+            control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL))) {
+        printf("failed to assert remote throttle_cmd_topic subscription\n");
     }
 
     throttle_cmd_topic_dw_narrow = 
             control_EngagementDataWriter_narrow(throttle_cmd_topic_dw);
 
+    /* brake_cmd_topic DataWriter */
+    brake_cmd_topic_dw_qos.protocol.rtps_object_id = 
+            BRAKE_CMD_TOPIC_DW_RTPS_OBJ_ID;
+    brake_cmd_topic_dw_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    brake_cmd_topic_dw_qos.resource_limits.max_samples_per_instance = 32;
+    brake_cmd_topic_dw_qos.resource_limits.max_instances = 2;
+    brake_cmd_topic_dw_qos.resource_limits.max_samples = 
+            brake_cmd_topic_dw_qos.resource_limits.max_instances *
+            brake_cmd_topic_dw_qos.resource_limits.max_samples_per_instance;
+    brake_cmd_topic_dw_qos.history.depth = 32;
+    brake_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.sec = 0;
+    brake_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.nanosec = 250000000;
+
+    /* assign brake_cmd_topic DataWriter callbacks */
+    brake_cmd_topic_dw_listener.on_publication_matched =
+            brake_cmd_topic_dw_on_publication_matched;
+
+    brake_cmd_topic_dw = DDS_Publisher_create_datawriter(
+            publisher, 
+            brake_cmd_topic, 
+            &brake_cmd_topic_dw_qos,
+            &brake_cmd_topic_dw_listener,
+            DDS_PUBLICATION_MATCHED_STATUS);
+    if (brake_cmd_topic_dw == NULL) {
+        printf("brake_cmd_topic_dw == NULL\n");
+    }
+
+    /* configure discovery information for the remote brake_cmd_topic 
+     * DataReader
+     */
+    brake_cmd_topic_sub_data.key.value[DDS_BUILTIN_TOPIC_KEY_OBJECT_ID] = 
+            BRAKE_CMD_TOPIC_DR_RTPS_OBJ_ID;
+    brake_cmd_topic_sub_data.topic_name = 
+            DDS_String_dup(control_BRAKE_CMD_TOPIC_NAME);
+    brake_cmd_topic_sub_data.type_name = 
+            DDS_String_dup(control_ENGAGEMENT_TYPE_NAME);
+    brake_cmd_topic_sub_data.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    if(DDS_RETCODE_OK != DPSE_RemoteSubscription_assert(
+            dp,
+            LONGITUDINAL_SYSTEM_PARTICIPANT_NAME,
+            &brake_cmd_topic_sub_data,
+            control_Engagement_get_key_kind(control_EngagementTypePlugin_get(), NULL))) {
+        printf("failed to assert remote brake_cmd_topic subscription\n");
+    }
+
+    brake_cmd_topic_dw_narrow = 
+            control_EngagementDataWriter_narrow(brake_cmd_topic_dw);
+
     enable_all_entities(dp);
+
+    /* create samples used to update instances */
+    throttle_cmd_topic_sample = control_Engagement_create();
+    if(throttle_cmd_topic_sample == NULL) {
+        printf("failed control_Engagement_create\n");
+    }
+    brake_cmd_topic_sample = control_Engagement_create();
+    if(brake_cmd_topic_sample == NULL) {
+        printf("failed control_Engagement_create\n");
+    }
 
     for (i = 0; (count > 0 && i < count) || (count == 0); ++i) {
         
-        /* set TEST values */
-        sample->device_id = 1;
-        sample->percentage = 75;
+        /* set throttle_cmd_topic TEST values */
+        throttle_cmd_topic_sample->device_id = 10;
+        throttle_cmd_topic_sample->device_type = THROTTLE;
+        throttle_cmd_topic_sample->percentage = 75;
 
         retcode = control_EngagementDataWriter_write(
                 throttle_cmd_topic_dw_narrow,
-                sample,
+                throttle_cmd_topic_sample,
                 &DDS_HANDLE_NIL);
         if (retcode != DDS_RETCODE_OK)
         {
@@ -254,12 +323,29 @@ DDS_Long sleep_time, DDS_Long count)
             printf("Written sample %d\n",(i+1));
         } 
 
+        /* set brake_cmd_topic TEST values */
+        brake_cmd_topic_sample->device_id = 20;
+        brake_cmd_topic_sample->device_type = BRAKE;
+        brake_cmd_topic_sample->percentage = 75;
+
+        retcode = control_EngagementDataWriter_write(
+                brake_cmd_topic_dw_narrow,
+                brake_cmd_topic_sample,
+                &DDS_HANDLE_NIL);
+        if (retcode != DDS_RETCODE_OK)
+        {
+            printf("Failed to write sample\n");
+        } 
+        else
+        {
+            printf("Written sample %d\n",(i+1));
+        } 
         OSAPI_Thread_sleep(sleep_time);
     }
 
-    if (sample != NULL)
+    if (throttle_cmd_topic_sample != NULL)
     {
-        control_Engagement_delete(sample);
+        control_Engagement_delete(throttle_cmd_topic_sample);
     }
 
     return 0;

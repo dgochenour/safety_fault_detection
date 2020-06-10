@@ -85,14 +85,14 @@ endforeach()
 
 add_executable(motion_controller
         ${CMAKE_CURRENT_SOURCE_DIR}/motion_controller.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/motion_controller_listeners.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/motion_controller_callbacks.c
         ${CMAKE_CURRENT_SOURCE_DIR}/common_utils.c
         ${IDL_GEN_C} 
         ${IDL_GEN_H})
 
 add_executable(longitudinal_system 
         ${CMAKE_CURRENT_SOURCE_DIR}/longitudinal_system.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/longitudinal_system_listeners.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/longitudinal_system_callbacks.c
         ${CMAKE_CURRENT_SOURCE_DIR}/common_utils.c
         ${IDL_GEN_C} 
         ${IDL_GEN_H})
