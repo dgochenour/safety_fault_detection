@@ -10,6 +10,9 @@
 * to use the software.
 */
 
+#ifndef LONGITUDINAL_SYSTEM_CALLBACKS_H
+#define LONGITUDINAL_SYSTEM_CALLBACKS_H
+
 #include "rti_me_c.h"
 #include "wh_sm/wh_sm_history.h"
 #include "rh_sm/rh_sm_history.h"
@@ -36,3 +39,5 @@ void brake_cmd_topic_dr_on_subscription_matched(
         void *listener_data,
         DDS_DataReader * reader,
         const struct DDS_SubscriptionMatchedStatus *status);
+
+#endif /* LONGITUDINAL_SYSTEM_CALLBACKS_H */

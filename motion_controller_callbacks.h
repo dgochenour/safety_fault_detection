@@ -10,6 +10,9 @@
 * to use the software.
 */
 
+#ifndef MOTION_CONTROLLER_CALLBACKS_H
+#define MOTION_CONTROLLER_CALLBACKS_H
+
 #include "rti_me_c.h"
 #include "wh_sm/wh_sm_history.h"
 #include "rh_sm/rh_sm_history.h"
@@ -25,3 +28,5 @@ void brake_cmd_topic_dw_on_publication_matched(
         void *listener_data,
         DDS_DataWriter * writer,
         const struct DDS_PublicationMatchedStatus *status);
+
+#endif /* MOTION_CONTROLLER_CALLBACKS_H */
