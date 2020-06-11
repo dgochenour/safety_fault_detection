@@ -20,6 +20,7 @@
 #include "netio/netio_udp.h"
 
 DDS_ReturnCode_t enable_all_entities(DDS_DomainParticipant *participant);
+DDS_ReturnCode_t register_rh_wh(RT_Registry_T *registry);
 DDS_ReturnCode_t configure_udp_transport(
         RT_Registry_T *registry, 
         struct UDP_InterfaceFactoryProperty *udp_property,

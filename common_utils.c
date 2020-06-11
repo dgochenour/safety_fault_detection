@@ -21,6 +21,28 @@ DDS_ReturnCode_t enable_all_entities(DDS_DomainParticipant *participant) {
     return retcode;
 }
 
+DDS_ReturnCode_t register_rh_wh(RT_Registry_T *registry) {
+    if(!RT_Registry_register( 
+            registry, 
+            DDSHST_WRITER_DEFAULT_HISTORY_NAME,
+            WHSM_HistoryFactory_get_interface(), 
+            NULL, 
+            NULL)) {
+        printf("failed to register wh\n");
+        return DDS_RETCODE_ERROR;
+    }
+    if(!RT_Registry_register(
+            registry, 
+            DDSHST_READER_DEFAULT_HISTORY_NAME,
+            RHSM_HistoryFactory_get_interface(), 
+            NULL,
+            NULL)) {
+        printf("failed to register rh\n");
+        return DDS_RETCODE_ERROR;
+    }
+    return DDS_RETCODE_OK;
+}
+
 DDS_ReturnCode_t configure_udp_transport(
         RT_Registry_T *registry, 
         struct UDP_InterfaceFactoryProperty *udp_property,

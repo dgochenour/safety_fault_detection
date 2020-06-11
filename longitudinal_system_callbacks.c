@@ -48,7 +48,7 @@ void throttle_cmd_topic_dr_on_data_available(
             printf("\nSAMPLE RECEIVED: throttle_cmd_topic\n");
             printf("\tdevice_id = %d\n", sample->device_id);
             printf("\tpercentage = %d\n", sample->percentage);
-            printf("\tsequence num = %ld %lu\n", 
+            printf("\tsequence num = %d %ud\n", 
                     sample_info->publication_sequence_number.high,
                     sample_info->publication_sequence_number.low);
         } else {

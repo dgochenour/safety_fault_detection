@@ -70,21 +70,10 @@ DDS_Long sleep_time, DDS_Long count)
     dpf = DDS_DomainParticipantFactory_get_instance();
     registry = DDS_DomainParticipantFactory_get_registry(dpf);
 
-    if(!RT_Registry_register(
-            registry, 
-            DDSHST_WRITER_DEFAULT_HISTORY_NAME,
-            WHSM_HistoryFactory_get_interface(), 
-            NULL, 
-            NULL)) {
-        printf("failed to register wh\n");
-    }
-    if(!RT_Registry_register(
-            registry, 
-            DDSHST_READER_DEFAULT_HISTORY_NAME,
-            RHSM_HistoryFactory_get_interface(), 
-            NULL,
-            NULL)) {
-        printf("failed to register rh\n");
+    /* register writer and reader history */
+    retcode = register_rh_wh(registry);
+    if(retcode != DDS_RETCODE_OK) {
+        printf("failed to register rh and wh\n");
     }
     
     /* configure the UDP transport */
