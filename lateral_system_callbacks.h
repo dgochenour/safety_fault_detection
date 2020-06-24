@@ -10,8 +10,8 @@
 * to use the software.
 */
 
-#ifndef MOTION_CONTROLLER_CALLBACKS_H
-#define MOTION_CONTROLLER_CALLBACKS_H
+#ifndef LATERAL_SYSTEM_CALLBACKS_H
+#define LATERAL_SYSTEM_CALLBACKS_H
 
 #include "rti_me_c.h"
 #include "wh_sm/wh_sm_history.h"
@@ -19,19 +19,16 @@
 #include "disc_dpse/disc_dpse_dpsediscovery.h"
 #include "netio/netio_udp.h"
 
-void throttle_cmd_topic_dw_on_publication_matched(
-        void *listener_data,
-        DDS_DataWriter * writer,
-        const struct DDS_PublicationMatchedStatus *status);
+#include "Angle_t.h"
+#include "Angle_tSupport.h"
 
-void brake_cmd_topic_dw_on_publication_matched(
+void steering_cmd_topic_dr_on_data_available(
         void *listener_data,
-        DDS_DataWriter * writer,
-        const struct DDS_PublicationMatchedStatus *status);
+        DDS_DataReader * reader);
 
-void steering_cmd_topic_dw_on_publication_matched(
+void steering_cmd_topic_dr_on_subscription_matched(
         void *listener_data,
-        DDS_DataWriter * writer,
-        const struct DDS_PublicationMatchedStatus *status);
+        DDS_DataReader * reader,
+        const struct DDS_SubscriptionMatchedStatus *status);
 
-#endif /* MOTION_CONTROLLER_CALLBACKS_H */
+#endif /* LATERAL_SYSTEM_CALLBACKS_H */

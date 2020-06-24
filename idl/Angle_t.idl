@@ -12,8 +12,8 @@
 
 module control {
 
-    const string _CMD_TOPIC_NAME = "Steering Command Topic";
-    const string ENGAGEMENT_TYPE_NAME = "control::Angle";
+    const string STEERING_CMD_TOPIC_NAME = "Steering Command Topic";
+    const string ANGLE_TYPE_NAME = "control::Angle";
 
     struct Angle {
         @key long device_id;
