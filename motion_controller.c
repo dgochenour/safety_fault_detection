@@ -17,8 +17,13 @@
 #include "motion_controller_common.h"
 #include "motion_controller_callbacks.h"
 #include "common_utils.h"
+
 #include "Engagement_t.h"
+#include "Engagement_tPlugin.h"
 #include "Engagement_tSupport.h"
+#include "Angle_t.h"
+#include "Angle_tPlugin.h"
+#include "Angle_tSupport.h"
 
 int
 publisher_main_w_args(DDS_Long domain_id, char *udp_intf, char *peer,
@@ -39,28 +44,38 @@ DDS_Long sleep_time, DDS_Long count)
     /* Topics */
     DDS_Topic *throttle_cmd_topic;
     DDS_Topic *brake_cmd_topic;
+    DDS_Topic *steering_cmd_topic;
     /* data samples */
     control_Engagement *throttle_cmd_topic_sample = NULL;
-    control_Engagement *brake_cmd_topic_sample = NULL;    
+    control_Engagement *brake_cmd_topic_sample = NULL; 
+    control_Angle *steering_cmd_topic_sample = NULL;   
     /* DataWriters */
     DDS_DataWriter *throttle_cmd_topic_dw   = NULL;
     DDS_DataWriter *brake_cmd_topic_dw      = NULL;
+    DDS_DataWriter *steering_cmd_topic_dw   = NULL;
     control_EngagementDataWriter *throttle_cmd_topic_dw_narrow  = NULL;
     control_EngagementDataWriter *brake_cmd_topic_dw_narrow     = NULL;
+    control_AngleDataWriter *steering_cmd_topic_dw_narrow        = NULL;
     /* DataWriter QoS */
     struct DDS_DataWriterQos throttle_cmd_topic_dw_qos = 
             DDS_DataWriterQos_INITIALIZER;
     struct DDS_DataWriterQos brake_cmd_topic_dw_qos = 
             DDS_DataWriterQos_INITIALIZER;
+    struct DDS_DataWriterQos steering_cmd_topic_dw_qos = 
+            DDS_DataWriterQos_INITIALIZER;
     /* DataWriter Listeners */        
     struct DDS_DataWriterListener throttle_cmd_topic_dw_listener =
             DDS_DataWriterListener_INITIALIZER;   
     struct DDS_DataWriterListener brake_cmd_topic_dw_listener =
-            DDS_DataWriterListener_INITIALIZER;           
+            DDS_DataWriterListener_INITIALIZER;     
+    struct DDS_DataWriterListener steering_cmd_topic_dw_listener =
+            DDS_DataWriterListener_INITIALIZER;         
     /* remote subscription discovery information (required for DPSE) */        
     struct DDS_SubscriptionBuiltinTopicData throttle_cmd_topic_sub_data =
             DDS_SubscriptionBuiltinTopicData_INITIALIZER;
     struct DDS_SubscriptionBuiltinTopicData brake_cmd_topic_sub_data =
+            DDS_SubscriptionBuiltinTopicData_INITIALIZER;
+    struct DDS_SubscriptionBuiltinTopicData steering_cmd_topic_sub_data =
             DDS_SubscriptionBuiltinTopicData_INITIALIZER;
 
     DDS_ReturnCode_t retcode;
@@ -117,13 +132,13 @@ DDS_Long sleep_time, DDS_Long count)
     }
     *DDS_StringSeq_get_reference(&dp_qos.discovery.initial_peers,0) = 
             DDS_String_dup(peer);
-    dp_qos.resource_limits.local_writer_allocation = 2;
+    dp_qos.resource_limits.local_writer_allocation = 3;
     dp_qos.resource_limits.local_reader_allocation = 2;
     dp_qos.resource_limits.max_destination_ports = 32;
     dp_qos.resource_limits.max_receive_ports = 32;
-    dp_qos.resource_limits.local_topic_allocation = 2;
-    dp_qos.resource_limits.local_type_allocation = 10;
-    dp_qos.resource_limits.remote_participant_allocation = 1;
+    dp_qos.resource_limits.local_topic_allocation = 3;
+    dp_qos.resource_limits.local_type_allocation = 3;
+    dp_qos.resource_limits.remote_participant_allocation = 2;
     dp_qos.resource_limits.remote_reader_allocation = 8;
     /* set the name of the local DomainParticipant */
     strcpy(dp_qos.participant_name.name, MOTION_CONTROLLER_PARTICIPANT_NAME);
@@ -155,6 +170,13 @@ DDS_Long sleep_time, DDS_Long count)
     if(retcode != DDS_RETCODE_OK) {
         printf("failed to register type\n");
     }
+    retcode = DDS_DomainParticipant_register_type(
+            dp,
+            control_ANGLE_TYPE_NAME,
+            control_AngleTypePlugin_get());
+    if(retcode != DDS_RETCODE_OK) {
+        printf("failed to register type\n");
+    }
 
     /* create Topics */
     throttle_cmd_topic = DDS_DomainParticipant_create_topic(
@@ -177,9 +199,23 @@ DDS_Long sleep_time, DDS_Long count)
     if (brake_cmd_topic == NULL) {
         printf("topic == NULL\n");
     }
+    steering_cmd_topic = DDS_DomainParticipant_create_topic(
+            dp,
+            control_STEERING_CMD_TOPIC_NAME,
+            control_ANGLE_TYPE_NAME,
+            &DDS_TOPIC_QOS_DEFAULT, 
+            NULL,
+            DDS_STATUS_MASK_NONE);
+    if (brake_cmd_topic == NULL) {
+        printf("topic == NULL\n");
+    }
 
-    /* assert any remote DomainParticipants we expect to discover */
+    /* assert the remote DomainParticipants we expect to discover */
     retcode = DPSE_RemoteParticipant_assert(dp, LONGITUDINAL_SYSTEM_PARTICIPANT_NAME);
+    if (retcode != DDS_RETCODE_OK) {
+        printf("failed to assert remote participant\n");
+    }
+    retcode = DPSE_RemoteParticipant_assert(dp, LATERAL_SYSTEM_PARTICIPANT_NAME);
     if (retcode != DDS_RETCODE_OK) {
         printf("failed to assert remote participant\n");
     }
@@ -280,6 +316,55 @@ DDS_Long sleep_time, DDS_Long count)
     brake_cmd_topic_dw_narrow = 
             control_EngagementDataWriter_narrow(brake_cmd_topic_dw);
 
+
+    /* steering_cmd_topic DataWriter */
+    steering_cmd_topic_dw_qos.protocol.rtps_object_id = 
+            STEERING_CMD_TOPIC_DW_RTPS_OBJ_ID;
+    steering_cmd_topic_dw_qos.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    steering_cmd_topic_dw_qos.resource_limits.max_samples_per_instance = 32;
+    steering_cmd_topic_dw_qos.resource_limits.max_instances = 2;
+    steering_cmd_topic_dw_qos.resource_limits.max_samples = 
+            steering_cmd_topic_dw_qos.resource_limits.max_instances *
+            steering_cmd_topic_dw_qos.resource_limits.max_samples_per_instance;
+    steering_cmd_topic_dw_qos.history.depth = 32;
+    steering_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.sec = 0;
+    steering_cmd_topic_dw_qos.protocol.rtps_reliable_writer.heartbeat_period.nanosec = 250000000;
+
+    /* assign brake_cmd_topic DataWriter callbacks */
+    steering_cmd_topic_dw_listener.on_publication_matched =
+            steering_cmd_topic_dw_on_publication_matched;
+
+    steering_cmd_topic_dw = DDS_Publisher_create_datawriter(
+            publisher, 
+            steering_cmd_topic, 
+            &steering_cmd_topic_dw_qos,
+            &steering_cmd_topic_dw_listener,
+            DDS_PUBLICATION_MATCHED_STATUS);
+    if (steering_cmd_topic_dw == NULL) {
+        printf("brake_cmd_topic_dw == NULL\n");
+    }
+
+    /* configure discovery information for the remote steering_cmd_topic 
+     * DataReader
+     */
+    steering_cmd_topic_sub_data.key.value[DDS_BUILTIN_TOPIC_KEY_OBJECT_ID] = 
+            STEERING_CMD_TOPIC_DR_RTPS_OBJ_ID;
+    steering_cmd_topic_sub_data.topic_name = 
+            DDS_String_dup(control_STEERING_CMD_TOPIC_NAME);
+    steering_cmd_topic_sub_data.type_name = 
+            DDS_String_dup(control_ANGLE_TYPE_NAME);
+    steering_cmd_topic_sub_data.reliability.kind = DDS_RELIABLE_RELIABILITY_QOS;
+    if(DDS_RETCODE_OK != DPSE_RemoteSubscription_assert(
+            dp,
+            LATERAL_SYSTEM_PARTICIPANT_NAME,
+            &steering_cmd_topic_sub_data,
+            control_Angle_get_key_kind(control_AngleTypePlugin_get(), NULL))) {
+        printf("failed to assert remote steering_cmd_topic subscription\n");
+    }
+
+    steering_cmd_topic_dw_narrow = 
+            control_AngleDataWriter_narrow(steering_cmd_topic_dw);
+
     enable_all_entities(dp);
 
     /* create samples used to update instances */
@@ -290,6 +375,10 @@ DDS_Long sleep_time, DDS_Long count)
     brake_cmd_topic_sample = control_Engagement_create();
     if(brake_cmd_topic_sample == NULL) {
         printf("failed control_Engagement_create\n");
+    }
+    steering_cmd_topic_sample = control_Angle_create();
+    if(steering_cmd_topic_sample == NULL) {
+        printf("failed control_Angle_create\n");
     }
 
     for (i = 0; (count > 0 && i < count) || (count == 0); ++i) {
@@ -303,12 +392,9 @@ DDS_Long sleep_time, DDS_Long count)
                 throttle_cmd_topic_dw_narrow,
                 throttle_cmd_topic_sample,
                 &DDS_HANDLE_NIL);
-        if (retcode != DDS_RETCODE_OK)
-        {
+        if (retcode != DDS_RETCODE_OK) {
             printf("Failed to write sample\n");
-        } 
-        else
-        {
+        } else {
             printf("Written sample %d\n",(i+1));
         } 
 
@@ -321,14 +407,26 @@ DDS_Long sleep_time, DDS_Long count)
                 brake_cmd_topic_dw_narrow,
                 brake_cmd_topic_sample,
                 &DDS_HANDLE_NIL);
-        if (retcode != DDS_RETCODE_OK)
-        {
+        if (retcode != DDS_RETCODE_OK) {
             printf("Failed to write sample\n");
-        } 
-        else
-        {
+        } else {
             printf("Written sample %d\n",(i+1));
         } 
+
+        /* set steering_cmd_topic TEST values */
+        steering_cmd_topic_sample->device_id = 20;
+        steering_cmd_topic_sample->theta = 30;
+
+        retcode = control_AngleDataWriter_write(
+                steering_cmd_topic_dw_narrow,
+                steering_cmd_topic_sample,
+                &DDS_HANDLE_NIL);
+        if (retcode != DDS_RETCODE_OK) {
+            printf("Failed to write sample\n");
+        } else {
+            printf("Written sample %d\n",(i+1));
+        } 
+
         OSAPI_Thread_sleep(sleep_time);
     }
 

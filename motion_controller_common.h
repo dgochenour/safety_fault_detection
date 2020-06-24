@@ -21,15 +21,13 @@
 
 const char *MOTION_CONTROLLER_PARTICIPANT_NAME = "motion_controller";
 const char *LONGITUDINAL_SYSTEM_PARTICIPANT_NAME = "longitudinal_system";
-/* the DP names below may be used in the future, perhaps for test
- *
- * const char *THROTTLE_SYSTEM_PARTICIPANT_NAME = "throttle_system";
- * const char *BRAKE_SYSTEM_PARTICIPANT_NAME = "brake_system";
- */ 
+const char *LATERAL_SYSTEM_PARTICIPANT_NAME = "lateral_system";
 
 const int THROTTLE_CMD_TOPIC_DW_RTPS_OBJ_ID = 100;
 const int THROTTLE_CMD_TOPIC_DR_RTPS_OBJ_ID = 200;
 const int BRAKE_CMD_TOPIC_DW_RTPS_OBJ_ID = 300;
 const int BRAKE_CMD_TOPIC_DR_RTPS_OBJ_ID = 400;
+const int STEERING_CMD_TOPIC_DW_RTPS_OBJ_ID = 500;
+const int STEERING_CMD_TOPIC_DR_RTPS_OBJ_ID = 600;
 
 #endif /* MOTION_CONTROLLER_COMMON_H */

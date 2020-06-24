@@ -28,12 +28,26 @@ void throttle_cmd_topic_dw_on_publication_matched(
 }
 
 void brake_cmd_topic_dw_on_publication_matched(
-            void *listener_data,
+        void *listener_data,
         DDS_DataWriter * writer,
         const struct DDS_PublicationMatchedStatus *status) {
     if (status->current_count_change > 0)
     {
         printf("Matched a brake_cmd_topic subscriber\n");
+    }
+    else if (status->current_count_change < 0)
+    {
+        printf("Unmatched a subscriber\n");
+    }            
+}
+
+void steering_cmd_topic_dw_on_publication_matched(
+        void *listener_data,
+        DDS_DataWriter * writer,
+        const struct DDS_PublicationMatchedStatus *status) {
+    if (status->current_count_change > 0)
+    {
+        printf("Matched a steering_cmd_topic subscriber\n");
     }
     else if (status->current_count_change < 0)
     {
