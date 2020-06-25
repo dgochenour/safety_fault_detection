@@ -61,8 +61,11 @@ DDS_ReturnCode_t configure_udp_transport(
         printf("failed to set allow_interface length\n");
         return DDS_RETCODE_ERROR;
     }
+    /* NOTE: the "lo" loopback interface name used below is appropriate for 
+     * Linux but may need to be changed for other OSs
+     */ 
     *DDS_StringSeq_get_reference(&udp_property->allow_interface,0) = 
-            DDS_String_dup("lo0");
+            DDS_String_dup("lo");
     *DDS_StringSeq_get_reference(&udp_property->allow_interface,1) = 
             DDS_String_dup(udp_intf);
     if(!RT_Registry_register(
